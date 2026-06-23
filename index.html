@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DaVinci Resolve → PowerPoint</title>
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <h1>DaVinci Resolve → PowerPoint</h1>
+        <p class="app__subtitle">
+          Extract on-screen text from a <code>.drp</code> / <code>.drt</code>
+          timeline and generate a PowerPoint &mdash; everything runs in your
+          browser, nothing is uploaded.
+        </p>
+      </header>
+
+      <section id="dropzone" class="dropzone" aria-label="Upload area">
+        <input
+          id="fileInput"
+          class="dropzone__input"
+          type="file"
+          accept=".drp,.drt"
+        />
+        <label for="fileInput" class="dropzone__label">
+          <strong>Choose a .drp / .drt file</strong>
+          <span>or drag &amp; drop it here</span>
+        </label>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <section id="review" class="review" hidden>
+        <div class="review__toolbar">
+          <h2 class="review__title">Extracted text elements</h2>
+          <div class="review__actions">
+            <button id="generateBtn" class="btn btn--primary" type="button">
+              Generate PowerPoint
+            </button>
+          </div>
+        </div>
+        <p class="review__hint">
+          Review and edit the text below before exporting. Rows marked
+          <span class="badge badge--warn">truncated</span> could not be fully
+          recovered from the project file &mdash; please complete them manually.
+        </p>
+        <div class="review__tablewrap">
+          <table id="reviewTable" class="review__table">
+            <thead>
+              <tr>
+                <th class="col-include"><span title="Include in export">✓</span></th>
+                <th class="col-type">Type</th>
+                <th class="col-primary">Primary text</th>
+                <th class="col-secondary">Secondary text</th>
+                <th class="col-pos">Timeline</th>
+              </tr>
+            </thead>
+            <tbody id="reviewBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

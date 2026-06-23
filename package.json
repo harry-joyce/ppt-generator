@@ -1,0 +1,19 @@
+{
+  "name": "drp-to-pptx",
+  "version": "0.1.0",
+  "description": "Client-only web tool to extract on-screen text from DaVinci Resolve .drp/.drt files and generate a PowerPoint.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "pptxgenjs": "^3.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0"
+  }
+}
