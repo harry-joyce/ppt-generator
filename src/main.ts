@@ -21,6 +21,7 @@ const reviewEl = document.getElementById("review") as HTMLElement;
 const reviewBody = document.getElementById("reviewBody") as HTMLElement;
 const generateBtn = document.getElementById("generateBtn") as HTMLButtonElement;
 const videoInput = document.getElementById("videoInput") as HTMLInputElement;
+const videoDropzone = document.getElementById("videoDropzone") as HTMLElement;
 const videoName = document.getElementById("videoName") as HTMLElement;
 const fpsInput = document.getElementById("fpsInput") as HTMLInputElement;
 const nudgeInput = document.getElementById("nudgeInput") as HTMLInputElement;
@@ -270,10 +271,33 @@ fileInput.addEventListener("change", () => {
 });
 
 videoInput.addEventListener("change", () => {
-  videoFile = videoInput.files?.[0] ?? undefined;
+  setVideoFile(videoInput.files?.[0] ?? undefined);
+});
+
+function setVideoFile(file: File | undefined): void {
+  videoFile = file;
   videoName.textContent = videoFile
     ? videoFile.name
     : "No video selected (slides use a solid background)";
+}
+
+["dragenter", "dragover"].forEach((type) =>
+  videoDropzone.addEventListener(type, (e) => {
+    e.preventDefault();
+    videoDropzone.classList.add("dropzone--over");
+  }),
+);
+
+["dragleave", "drop"].forEach((type) =>
+  videoDropzone.addEventListener(type, (e) => {
+    e.preventDefault();
+    videoDropzone.classList.remove("dropzone--over");
+  }),
+);
+
+videoDropzone.addEventListener("drop", (e) => {
+  const file = (e as DragEvent).dataTransfer?.files?.[0];
+  if (file) setVideoFile(file);
 });
 
 ["dragenter", "dragover"].forEach((type) =>

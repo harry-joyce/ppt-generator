@@ -47,15 +47,18 @@
         </p>
 
         <div class="bg-options">
-          <div class="bg-options__row">
+          <div id="videoDropzone" class="dropzone dropzone--compact" aria-label="Timeline video upload area">
             <input
               id="videoInput"
-              class="bg-options__file"
+              class="dropzone__input"
               type="file"
               accept="video/*,.mov,.mp4,.mxf"
             />
-            <label for="videoInput" class="btn">Choose timeline video&hellip;</label>
-            <span id="videoName" class="bg-options__name">No video selected (slides use a solid background)</span>
+            <label for="videoInput" class="dropzone__label">
+              <strong>Choose a timeline video</strong>
+              <span>or drag &amp; drop it here</span>
+              <span id="videoName" class="bg-options__name">No video selected (slides use a solid background)</span>
+            </label>
           </div>
           <div class="bg-options__row">
             <label class="bg-options__field">

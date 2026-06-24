@@ -85,6 +85,10 @@ code {
   font-size: 0.9rem;
 }
 
+.dropzone--compact .dropzone__label {
+  padding: 1.5rem 1rem;
+}
+
 .status {
   min-height: 1.4rem;
   margin: 1rem 0 0;
