@@ -14,6 +14,39 @@ function directChildText(el: Element, tag: string): string | null {
   return null;
 }
 
+/** A background media clip on a video track (the rendered timeline footage). */
+interface MediaClip {
+  /** Timeline start position, in frames. */
+  start: number;
+  /** Decoded frame rate, if recoverable. */
+  frameRate?: number;
+}
+
+/** Aggregate result of parsing one or more sequence documents. */
+export interface ParsedTimeline {
+  elements: TextElement[];
+  /** Frame rate of the earliest media clip, if found. */
+  frameRate?: number;
+  /** Timeline frame where the earliest media clip begins, if found. */
+  videoBaseFrame?: number;
+}
+
+/**
+ * Decode a DaVinci `MediaFrameRate` field into frames per second. The value is
+ * a hex string whose first 8 bytes are a little-endian IEEE-754 double.
+ */
+function decodeFrameRate(hex: string | null): number | undefined {
+  if (!hex) return undefined;
+  const h = hex.trim();
+  if (h.length < 16 || !/^[0-9a-fA-F]+$/.test(h.slice(0, 16))) return undefined;
+  const buf = new Uint8Array(8);
+  for (let i = 0; i < 8; i++) {
+    buf[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16);
+  }
+  const value = new DataView(buf.buffer).getFloat64(0, true);
+  return Number.isFinite(value) && value > 0 && value < 1000 ? value : undefined;
+}
+
 /** Map Fusion Text+ tools to primary/secondary lines by their tool name. */
 function mapFusionTexts(texts: FusionText[]): {
   primary: string;
@@ -69,13 +102,17 @@ function sanitizeXml(xml: string): string {
 }
 
 /** Parse a single SeqContainer XML document into text elements. */
-function parseSequence(xml: string): TextElement[] {
+function parseSequence(xml: string): {
+  elements: TextElement[];
+  mediaClips: MediaClip[];
+} {
   const doc = new DOMParser().parseFromString(
     sanitizeXml(xml),
     "application/xml",
   );
 
   const elements: TextElement[] = [];
+  const mediaClips: MediaClip[] = [];
   const clips = doc.querySelectorAll(CLIP_TAGS.join(","));
 
   for (const clip of Array.from(clips)) {
@@ -84,8 +121,20 @@ function parseSequence(xml: string): TextElement[] {
     const startFrames = Number(directChildText(clip, "Start") ?? "0") || 0;
 
     const compositionBA = clip.querySelector("CompositionBA")?.textContent ?? "";
+    const hasComposition = /^[0-9a-fA-F]{16,}$/.test(compositionBA.trim());
 
-    if (/^[0-9a-fA-F]{16,}$/.test(compositionBA.trim())) {
+    // A real media clip (the rendered footage) carries a MediaFilePath and has
+    // no embedded Fusion composition. Record it so we can locate where the
+    // uploaded video begins on the timeline and recover the frame rate.
+    const mediaFilePath = (directChildText(clip, "MediaFilePath") ?? "").trim();
+    if (clip.tagName === "Sm2TiVideoClip" && mediaFilePath && !hasComposition) {
+      mediaClips.push({
+        start: startFrames,
+        frameRate: decodeFrameRate(directChildText(clip, "MediaFrameRate")),
+      });
+    }
+
+    if (hasComposition) {
       // Fusion Title: pull text from the embedded composition.
       const texts = extractFusionTexts(compositionBA.trim());
       const { primary, secondary } = mapFusionTexts(texts);
@@ -119,14 +168,28 @@ function parseSequence(xml: string): TextElement[] {
     }
   }
 
-  return elements;
+  return { elements, mediaClips };
 }
 
 /** Parse all sequence documents in an archive into ordered text elements. */
-export function parseTimelines(sequenceXmls: string[]): TextElement[] {
-  const all: TextElement[] = [];
+export function parseTimelines(sequenceXmls: string[]): ParsedTimeline {
+  const elements: TextElement[] = [];
+  const mediaClips: MediaClip[] = [];
   for (const xml of sequenceXmls) {
-    all.push(...parseSequence(xml));
+    const parsed = parseSequence(xml);
+    elements.push(...parsed.elements);
+    mediaClips.push(...parsed.mediaClips);
   }
-  return all;
+
+  // The rendered video begins at the earliest media clip on the timeline.
+  let base: MediaClip | undefined;
+  for (const clip of mediaClips) {
+    if (!base || clip.start < base.start) base = clip;
+  }
+
+  return {
+    elements,
+    frameRate: base?.frameRate,
+    videoBaseFrame: base?.start,
+  };
 }

@@ -45,6 +45,33 @@
           <span class="badge badge--warn">truncated</span> could not be fully
           recovered from the project file &mdash; please complete them manually.
         </p>
+
+        <div class="bg-options">
+          <div class="bg-options__row">
+            <input
+              id="videoInput"
+              class="bg-options__file"
+              type="file"
+              accept="video/*,.mov,.mp4,.mxf"
+            />
+            <label for="videoInput" class="btn">Choose timeline video&hellip;</label>
+            <span id="videoName" class="bg-options__name">No video selected (slides use a solid background)</span>
+          </div>
+          <div class="bg-options__row">
+            <label class="bg-options__field">
+              Frame rate (fps)
+              <input id="fpsInput" class="cell-input bg-options__fps" type="number" step="0.001" min="1" />
+            </label>
+            <label class="bg-options__field">
+              Nudge (s)
+              <input id="nudgeInput" class="cell-input bg-options__fps" type="number" step="0.1" value="0.3" />
+            </label>
+            <span class="review__hint bg-options__help">
+              Grab a frame at each text's on-screen moment as the slide
+              background. Pro codecs (e.g. ProRes) are decoded in your browser.
+            </span>
+          </div>
+        </div>
         <div class="review__tablewrap">
           <table id="reviewTable" class="review__table">
             <thead>

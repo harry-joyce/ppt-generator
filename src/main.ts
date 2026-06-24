@@ -1,6 +1,7 @@
 import "./style.css";
 import { parseProject } from "./drp/parser";
-import { generatePptx } from "./pptx/build";
+import { generatePptx, type SlideExtras } from "./pptx/build";
+import { FrameExtractor } from "./video/frames";
 import type { TextElement } from "./drp/types";
 
 /** A review-table row: the parsed element plus user edits. */
@@ -19,9 +20,16 @@ const statusEl = document.getElementById("status") as HTMLElement;
 const reviewEl = document.getElementById("review") as HTMLElement;
 const reviewBody = document.getElementById("reviewBody") as HTMLElement;
 const generateBtn = document.getElementById("generateBtn") as HTMLButtonElement;
+const videoInput = document.getElementById("videoInput") as HTMLInputElement;
+const videoName = document.getElementById("videoName") as HTMLElement;
+const fpsInput = document.getElementById("fpsInput") as HTMLInputElement;
+const nudgeInput = document.getElementById("nudgeInput") as HTMLInputElement;
 
 let rows: Row[] = [];
 let projectName = "OST";
+let frameRate: number | undefined;
+let videoBaseFrame: number | undefined;
+let videoFile: File | undefined;
 
 function setStatus(message: string, isError = false): void {
   statusEl.textContent = message;
@@ -131,6 +139,12 @@ async function handleFile(file: File): Promise<void> {
     const parsed = parseProject(buffer);
     projectName = parsed.projectName || file.name.replace(/\.[^.]+$/, "");
     rows = toRows(parsed.elements);
+    frameRate = parsed.frameRate;
+    videoBaseFrame = parsed.videoBaseFrame;
+
+    if (frameRate) {
+      fpsInput.value = frameRate.toFixed(3);
+    }
 
     if (rows.length === 0) {
       reviewEl.hidden = true;
@@ -174,15 +188,82 @@ async function handleGenerate(): Promise<void> {
 
   try {
     generateBtn.disabled = true;
+
+    const { extras, failures } = await buildBackgrounds(selected);
+
     setStatus(`Generating PowerPoint with ${selected.length} slide(s)…`);
-    await generatePptx(selected, projectName);
-    setStatus(`Done. Your PowerPoint has been downloaded.`);
+    await generatePptx(selected, projectName, extras);
+    setStatus(
+      failures > 0
+        ? `Done. ${failures} of ${selected.length} slide(s) kept a solid background because the video frame could not be decoded.`
+        : `Done. Your PowerPoint has been downloaded.`,
+    );
   } catch (err) {
     console.error(err);
-    setStatus("Failed to generate the PowerPoint.", true);
+    const detail = err instanceof Error ? err.message : String(err);
+    setStatus(`Failed to generate the PowerPoint: ${detail}`, true);
   } finally {
     updateGenerateState();
   }
+}
+
+/**
+ * When a timeline video is supplied, extract one background frame per slide at
+ * the moment its text appears. Returns an empty array (solid backgrounds) when
+ * no video is selected or the frame rate is unknown.
+ *
+ * The ffmpeg WebAssembly core can crash while seeking deep into very large
+ * professional sources; rather than letting one bad frame freeze the whole
+ * export, a failed decode falls back to a solid background for that slide and
+ * the core is rebuilt before the next frame.
+ */
+async function buildBackgrounds(
+  selected: TextElement[],
+): Promise<{ extras: SlideExtras[]; failures: number }> {
+  if (!videoFile) return { extras: [], failures: 0 };
+
+  const fps = Number(fpsInput.value);
+  if (!Number.isFinite(fps) || fps <= 0) {
+    setStatus("Enter a valid frame rate to use video backgrounds.", true);
+    throw new Error("invalid frame rate");
+  }
+
+  const nudge = Number(nudgeInput.value) || 0;
+  // Frame 0 of the rendered video is where the timeline's video content starts.
+  // Fall back to the earliest selected element if no media clip was detected.
+  const base =
+    videoBaseFrame ??
+    selected.reduce((min, e) => Math.min(min, e.startFrames), Infinity);
+
+  const extractor = new FrameExtractor();
+  const extras: SlideExtras[] = [];
+  let failures = 0;
+  try {
+    setStatus("Loading video decoder…");
+    await extractor.init(videoFile);
+
+    for (let i = 0; i < selected.length; i++) {
+      setStatus(`Extracting frame ${i + 1} of ${selected.length}…`);
+      const seconds = (selected[i].startFrames - base) / fps + nudge;
+      try {
+        extras[i] = { backgroundDataUrl: await extractor.extractFrame(seconds) };
+      } catch (err) {
+        // The decoder likely crashed on this frame. Keep a solid background for
+        // this slide and rebuild the core so the remaining frames still work.
+        console.warn(`Frame ${i + 1} could not be decoded:`, err);
+        extras[i] = {};
+        failures++;
+        if (i < selected.length - 1) {
+          setStatus(`Recovering video decoder after frame ${i + 1}…`);
+          await extractor.reset();
+        }
+      }
+    }
+  } finally {
+    extractor.terminate();
+  }
+
+  return { extras, failures };
 }
 
 // --- Event wiring -----------------------------------------------------------
@@ -190,6 +271,13 @@ async function handleGenerate(): Promise<void> {
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
   if (file) void handleFile(file);
+});
+
+videoInput.addEventListener("change", () => {
+  videoFile = videoInput.files?.[0] ?? undefined;
+  videoName.textContent = videoFile
+    ? videoFile.name
+    : "No video selected (slides use a solid background)";
 });
 
 ["dragenter", "dragover"].forEach((type) =>

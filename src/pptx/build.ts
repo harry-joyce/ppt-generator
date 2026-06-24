@@ -34,10 +34,17 @@ const STYLE = {
 
 const LAYOUT_NAME = "OST_16x9";
 
+/** Per-slide rendering options. */
+export interface SlideExtras {
+  /** Full-bleed background image as a `data:` URL (a frame from the video). */
+  backgroundDataUrl?: string;
+}
+
 /** Build a PowerPoint from the extracted text elements and trigger a download. */
 export async function generatePptx(
   elements: TextElement[],
   projectName: string,
+  extras: SlideExtras[] = [],
 ): Promise<void> {
   const pptx = new PptxGenJS();
   pptx.defineLayout({
@@ -47,9 +54,25 @@ export async function generatePptx(
   });
   pptx.layout = LAYOUT_NAME;
 
-  for (const el of elements) {
+  elements.forEach((el, i) => {
     const slide = pptx.addSlide();
-    slide.background = { color: STYLE.background };
+    const backgroundDataUrl = extras[i]?.backgroundDataUrl;
+
+    if (backgroundDataUrl) {
+      slide.background = { data: backgroundDataUrl };
+      // Dark scrim behind the text band so white OST text stays legible over
+      // bright frames.
+      slide.addShape(pptx.ShapeType.rect, {
+        x: 0,
+        y: STYLE.primary.y - 0.4,
+        w: STYLE.slideWidth,
+        h: STYLE.slideHeight - (STYLE.primary.y - 0.4),
+        fill: { color: "000000", transparency: 55 },
+        line: { type: "none" },
+      });
+    } else {
+      slide.background = { color: STYLE.background };
+    }
 
     slide.addText(el.primary, {
       x: STYLE.primary.x,
@@ -78,7 +101,7 @@ export async function generatePptx(
         valign: "top",
       });
     }
-  }
+  });
 
   const safeName = (projectName || "OST").replace(/[^\w.-]+/g, "_");
   await pptx.writeFile({ fileName: `${safeName}.pptx` });

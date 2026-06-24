@@ -120,6 +120,51 @@ code {
   margin: 0.5rem 0 1rem;
 }
 
+.bg-options {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bg-options__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bg-options__file {
+  display: none;
+}
+
+.bg-options__name {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.bg-options__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.bg-options__fps {
+  width: 7rem;
+}
+
+.bg-options__help {
+  margin: 0;
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+
 .review__tablewrap {
   overflow-x: auto;
   border: 1px solid var(--border);

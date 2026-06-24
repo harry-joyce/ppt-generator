@@ -19,4 +19,16 @@ export interface TextElement {
 export interface ParsedProject {
   projectName: string;
   elements: TextElement[];
+  /**
+   * Timeline frame rate (frames per second), recovered from a media clip's
+   * `MediaFrameRate`. Undefined when no media clip was found.
+   */
+  frameRate?: number;
+  /**
+   * Timeline frame at which the rendered video content begins (the smallest
+   * media-clip `Start`). Frame 0 of a full-timeline render corresponds to this
+   * position, so it is subtracted from an element's `startFrames` to find the
+   * element's offset within the uploaded video. Undefined when unknown.
+   */
+  videoBaseFrame?: number;
 }

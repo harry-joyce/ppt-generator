@@ -27,9 +27,11 @@ function orderAndDedup(elements: TextElement[]): TextElement[] {
 /** Parse a `.drp` / `.drt` archive into an ordered list of text elements. */
 export function parseProject(data: Uint8Array): ParsedProject {
   const archive = readArchive(data);
-  const elements = orderAndDedup(parseTimelines(archive.sequenceXmls));
+  const timeline = parseTimelines(archive.sequenceXmls);
   return {
     projectName: extractProjectName(archive.projectXml),
-    elements,
+    elements: orderAndDedup(timeline.elements),
+    frameRate: timeline.frameRate,
+    videoBaseFrame: timeline.videoBaseFrame,
   };
 }
