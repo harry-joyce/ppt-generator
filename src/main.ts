@@ -212,10 +212,10 @@ async function handleGenerate(): Promise<void> {
  * the moment its text appears. Returns an empty array (solid backgrounds) when
  * no video is selected or the frame rate is unknown.
  *
- * The ffmpeg WebAssembly core can crash while seeking deep into very large
- * professional sources; rather than letting one bad frame freeze the whole
- * export, a failed decode falls back to a solid background for that slide and
- * the core is rebuilt before the next frame.
+ * For all-intra sources (e.g. ProRes/DNxHD) the extractor parses the MOV index
+ * and slices out each individual coded frame, so ffmpeg never has to seek inside
+ * the multi-gigabyte file. Should any decode still fail, that slide falls back to
+ * a solid background and the core is rebuilt before the next frame.
  */
 async function buildBackgrounds(
   selected: TextElement[],
@@ -242,21 +242,17 @@ async function buildBackgrounds(
     setStatus("Loading video decoder…");
     await extractor.init(videoFile);
 
-    for (let i = 0; i < selected.length; i++) {
-      setStatus(`Extracting frame ${i + 1} of ${selected.length}…`);
-      const seconds = (selected[i].startFrames - base) / fps + nudge;
-      try {
-        extras[i] = { backgroundDataUrl: await extractor.extractFrame(seconds) };
-      } catch (err) {
-        // The decoder likely crashed on this frame. Keep a solid background for
-        // this slide and rebuild the core so the remaining frames still work.
-        console.warn(`Frame ${i + 1} could not be decoded:`, err);
+    const seconds = selected.map((e) => (e.startFrames - base) / fps + nudge);
+    const urls = await extractor.extractFrames(seconds, (done, total) => {
+      setStatus(`Extracting frame ${done} of ${total}…`);
+    });
+
+    for (let i = 0; i < urls.length; i++) {
+      if (urls[i]) {
+        extras[i] = { backgroundDataUrl: urls[i] };
+      } else {
         extras[i] = {};
         failures++;
-        if (i < selected.length - 1) {
-          setStatus(`Recovering video decoder after frame ${i + 1}…`);
-          await extractor.reset();
-        }
       }
     }
   } finally {
