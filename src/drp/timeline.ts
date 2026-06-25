@@ -1,4 +1,5 @@
 import { extractFusionTexts, type FusionText } from "./fusionTitle";
+import { extractRichTextFields } from "./richText";
 import type { TextElement } from "./types";
 
 /** PrettyType values for generators that carry user text (no Fusion comp). */
@@ -150,20 +151,39 @@ function parseSequence(xml: string): {
       continue;
     }
 
-    // Text generator without a Fusion composition (e.g. Rich Text).
+    // Text generator without a Fusion composition (e.g. Rich Text). The full
+    // text lives in the (zstd-compressed) EffectFiltersBA blob; the Name field
+    // only holds a truncated copy, so fall back to it only when the blob cannot
+    // be decoded.
     if (
       clip.tagName === "Sm2TiGenerator" &&
       TEXT_GENERATOR_RE.test(prettyType) &&
       name
     ) {
-      const { text, truncated } = cleanGeneratorName(name);
-      if (text) {
+      const fields = extractRichTextFields(
+        directChildText(clip, "EffectFiltersBA") ?? "",
+      );
+
+      if (fields.length > 0) {
+        // Every recovered field is real on-screen text: the first becomes the
+        // primary line, any remaining fields the secondary block.
         elements.push({
           sourceType: prettyType || "Text",
-          primary: text,
+          primary: fields[0],
+          secondary: fields.slice(1).join("\n") || undefined,
           startFrames,
-          truncated,
+          truncated: false,
         });
+      } else {
+        const { text, truncated } = cleanGeneratorName(name);
+        if (text) {
+          elements.push({
+            sourceType: prettyType || "Text",
+            primary: text,
+            startFrames,
+            truncated,
+          });
+        }
       }
     }
   }
